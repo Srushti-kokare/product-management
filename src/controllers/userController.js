@@ -3,7 +3,6 @@ const aws = require('../aws/aws')
 const userModel = require('../models/userModel')
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
-const parse = require('nodemon/lib/cli/parse')
 
 //**********************************  create user  *****************************************************************
 
@@ -283,64 +282,10 @@ const updateUser = async (req, res) => {
             var hashedPassword = await bcrypt.hash(holdPassword, salt)
         }
 
-        if(address){
-            const stringifyAddress = JSON.stringify(address)
-            const parsingAddress = JSON.parse(stringifyAddress)
-            // console.log("coming in ", 1)
-            if(parsingAddress.shipping){
-                // console.log("coming in ", 2)
-                if((parsingAddress.shipping.street)){
-                    // console.log("coming in ", 3)
-                    if(!validator.isValidValue(address.shipping.street)){
-                        return res.status(400).send({ status: false, messege: "please provide street for shipping." })
-                    }
-                }
-                if((address.shipping.city)){
-                    if (!validator.isValidValue(address.shipping.city)){
-                        return res.status(400).send({ status: false, messege: "please provide city for shipping." })
-                    }
-                }
-                if((address.shipping.pincode)){
-                    if (!validator.isValidValue(address.shipping.pincode)){
-                        return res.status(400).send({ status: false, messege: "please provide pincode for shipping." })
-                    }
-                    if (address.shipping.pincode.length != 6){
-                        return res.status(400).send({status:false, message:"please provide valid pincode"})
-                    }
-                }
-            }
-
-            var shippingStreet = address.shipping.street
-            var shippingCity = address.shipping.city
-            var shippingPincode = address.shipping.pincode
-
-            if(address.billing){
-                if(!validator.isValidValue(address.billing.street)){
-                    return res.status(400).send({ status: false, messege: "please provide street for billing." })
-                }
-                else if (!validator.isValidValue(address.billing.city)){
-                        return res.status(400).send({ status: false, messege: "please provide city for billing." })
-                    }
-                    else if (!validator.isValidValue(address.billing.pincode)){
-                        return res.status(400).send({ status: false, messege: "please provide pincode for billing." })
-                    }
-                    if (address.billing.pincode.length != 6){
-                        return res.status(400).send({status:false, message:"please provide valid pincode"})
-                    }
-            }
-
-            var billingStreet = address.billing.street
-            var billingCity = address.billing.city
-            var billingPincode = address.billing.pincode
-        }
-        else{
-            return res.status(400).send({status:false, message:"please provide address details."})
-        }
-        
         let files = req.files
         if(files && files.length > 0){
         var profileImageLink = await aws.uploadFile(files[0])
-        }
+        } 
     
         let updatedDetails = await userModel.findOneAndUpdate(
             { _id: userIdFromParams }, 
@@ -350,13 +295,7 @@ const updateUser = async (req, res) => {
                 email: email,
                 profileImage: profileImageLink,
                 phone: phone,
-                password: hashedPassword,
-                'address.shipping.street': shippingStreet,
-                'address.shipping.city': shippingCity,
-                'address.shipping.pincode': shippingPincode,
-                'address.billing.street': billingStreet,
-                'address.billing.city': billingCity,
-                'address.billing.pincode': billingPincode
+                password: hashedPassword
             }
         }, { new: true })
 

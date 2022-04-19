@@ -78,7 +78,7 @@ const createCart = async (req, res) => {
 
         if(isOldUser){
             const newTotalPrice = (isOldUser.totalPrice) + ((findProduct.price)*quantity)
-            let flag = 0;
+            let flag = 0;  //this for same user for adding the products
             const items = isOldUser.items
             for(let i=0; i<items.length; i++){
                 if(items[i].productId.toString() === productId){
@@ -89,7 +89,7 @@ const createCart = async (req, res) => {
                         totalPrice : newTotalPrice,
                         quantity : items[i].quantity
                     }
-                    flag = 1;
+                    flag = 1;  // new user adding products
                     const saveData = await cartModel.findOneAndUpdate(
                         {userId : userIdFromParams},
                         newCartData, {new:true})
@@ -115,7 +115,6 @@ const createCart = async (req, res) => {
         return res.status(500).json({ status: false, message: error.message });
     }
 }
-
 //------------------------------------- update cart ---------------------------------------------------------------
 
 const updateCart = async (req, res) => {
@@ -311,7 +310,7 @@ const deleteCart = async (req, res) => {
         }
         
         if(findCart.totalPrice === 0){
-            return res.status(404).send({status:false, msg:"your cart is empty."})
+            return res.status(404).send({status:false, message:"your cart is empty."})
         }
 
         await cartModel.findOneAndUpdate(

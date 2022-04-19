@@ -10,8 +10,10 @@ const isValidValue = (value) => {
 
 const isValidDetails = (requestBody) => Object.keys(requestBody).length > 0;
 
-const isValidSize = (input) => ["S", "XS", "M", "X", "L", "XXL", "XL"].indexOf(input) !== -1 
+const isValidStatus = (input) => ["cancelled", "completed", "pending"].indexOf(input) !== -1
+
+const isValidSizes = (input) => ["S", "XS","M","X", "L","XXL", "XL"].indexOf(input) !== -1
 
 const isValidObjectId = (objectId) => mongoose.Types.ObjectId.isValid(objectId)
 
-module.exports = { isValidValue, isValidDetails, isValidSize, isValidObjectId }
+module.exports = { isValidValue, isValidDetails, isValidSizes, isValidObjectId, isValidStatus }
