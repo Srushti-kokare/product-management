@@ -323,7 +323,7 @@ const deleteCart = async (req, res) => {
         })
         const findCartAfterDeletion = await cartModel.findOne({ userId: userIdFromParams })
         
-        return res.status(200).send({status: true,
+        return res.status(204).send({status: true,
             message: "All products have been removed from the cart successfully", data:findCartAfterDeletion})
     }
     catch(error){
