@@ -10,7 +10,7 @@ const createOrder = async (req, res) => {
         const userIdFromParams = req.params.userId
         const userIdFromToken = req.userId
         const data = req.body
-        const {cartId, totalPrice, totalQuantity, cancellable, status} = data
+        const {cartId, cancellable, status} = data
 
         if (!validator.isValidObjectId(userIdFromParams)) {
             return res.status(400).send({ status: false, msg: "userId is invalid" });
@@ -36,42 +36,11 @@ const createOrder = async (req, res) => {
         }
 
         if(findUserCart.items.length === 0){
-            return res.status(400).send({status:false, message:"User cart is empty."})
-        }
-
-        if (!validator.isValidValue(totalPrice)) {
-            return res.status(400).send({ status: false, messege: "please provide totalPrice" })
-        }
-
-        if(totalPrice <= 0){
-            return res.status(400).send({status:false, message:"total price can not be equalto or less than zero."})
-        }
-
-        if(totalPrice != findUserCart.totalPrice){
-            return res.status(400).send({status:false,
-                message:"Total price should be equal to the total price of products in the cart."})
-        }
-
-        if (!validator.isValidValue(totalQuantity)) {
-            return res.status(400).send({ status: false, messege: "please provide totalQuantity" })
-        }   
-
-        if(totalQuantity <= 0){
-            return res.status(400).send({status:false, message:"total Quantity can not be equalto or less than zero."})
-        }
-
-        let totalQuantityInCart = 0 
-        for(let i=0; i<findUserCart.items.length; i++){
-            totalQuantityInCart += findUserCart.items[i].quantity
-        }
-
-        if(totalQuantity != totalQuantityInCart){
-            return res.status(400).send({status:false,
-                message:"Total quantity should be equal to the total quantity of products in the cart."})
+            return res.status(400).send({status:false, message:"Your cart is empty, please add product to place order."})
         }
 
         if(cancellable){
-            if((cancellable != true) && (cancellable != false)){
+            if(typeof(cancellable != 'boolean')){
                 return res.status(400).send({status:false, message:"cancellable should be a valid boolean value."})
             }
         }
@@ -82,14 +51,19 @@ const createOrder = async (req, res) => {
             }
         }
 
+        let totalQuantityInCart = 0 
+        for(let i=0; i<findUserCart.items.length; i++){
+            totalQuantityInCart += findUserCart.items[i].quantity
+        }
+
         const newOrder = {
             userId : userIdFromParams,
             items : findUserCart.items,
-            totalPrice : totalPrice,
+            totalPrice : findUserCart.totalPrice,
             totalItems : findUserCart.totalItems,
-            totalQuantity : totalQuantity,
-            cancellable : cancellable,
-            status : status
+            totalQuantity : totalQuantityInCart,
+            cancellable,
+            status
         }
 
         await cartModel.findOneAndUpdate({ _id: cartId}, {
@@ -97,11 +71,10 @@ const createOrder = async (req, res) => {
                 items: [],
                 totalPrice: 0,
                 totalItems: 0,
-            },
-        });
+            }},{new:true});
 
-        const saveOrder= await orderModel.create(newOrder)
-        return res.status(201).send({status:true, message:"Order saved successfully", data:saveOrder})
+        let saveOrder= await orderModel.create(newOrder)
+        return res.status(201).send({status:true, message:"Order placed successfully", data:saveOrder})
     }
     catch(error){
         return res.status(500).json({ status: false, message: error.message });
@@ -149,10 +122,6 @@ const updateOrder = async (req, res) => {
             return res.status(400).send({ status: false, message: 'Order Id is incorrect.' });
         }
 
-        if (findOrder.totalPrice === 0) {
-            return res.status(404).send({ status: false, message: 'No order has been placed' });
-        }
-
         if(!validator.isValidStatus(status)){
             return res.status(400).send({status:false, message:"valid status is required. [completed, pending, cancelled]"})
         }
@@ -161,6 +130,11 @@ const updateOrder = async (req, res) => {
             if(findOrder.status === 'completed'){
                 return res.status(400).send({status:false,
                     message:"Order can not be updated to pending. because it is completed."})
+            }
+
+            if(findOrder.status === 'cancelled'){
+                return res.status(400).send({status:false,
+                    message:"Order can not be updated to pending. because it is cancelled."})
             }
 
             if(findOrder.status === 'pending'){
@@ -175,18 +149,30 @@ const updateOrder = async (req, res) => {
                     message:"Order can not be updated to completed. because it is cancelled."})
             }
 
-            if(findOrder.status === 'complted'){
+            if(findOrder.status === 'completed'){
                 return res.status(400).send({status:false,
                     message:"order is already completed."})
             }
+
+            const orderStatus = await orderModel.findOneAndUpdate({ _id: orderId}, {
+                $set: {
+                    items: [],
+                    totalPrice: 0,
+                    totalItems: 0,
+                    totalQuantity: 0,
+                    status
+                }},{new:true});
+
+                return res.status(200).send({status: true,
+                    message: "order completed successfully", data:orderStatus})
         }
 
         if(status === 'cancelled'){
-            console.log("coming in")
             if(findOrder.cancellable == false){
                 return res.status(400).send({status:false,
                     message:"Item can not be cancelled, because it is not cancellable."})
             }
+
 
             if(findOrder.status === 'cancelled'){
                 return res.status(400).send({status:false,
@@ -207,29 +193,6 @@ const updateOrder = async (req, res) => {
             return res.status(200).send({status: true,
                 message: "order cancelled successfully", data:findOrderAfterDeletion})
         }
-
-        let totalQuantityInCart = 0 
-        for(let i=0; i<findOrder.items.length; i++){
-            totalQuantityInCart += findOrder.items[i].quantity
-        }
-
-        const newOrder = {
-            userId : userIdFromParams,
-            items : findOrder.items,
-            totalPrice : findOrder.totalPrice,
-            totalItems : findOrder.totalItems,
-            totalQuantity : findOrder.totalQuantity,
-            cancellable : findOrder.cancellable,
-            status : status
-        }
-
-        const updateOrder = await orderModel.findOneAndUpdate(
-            { userId: userIdFromParams },
-            newOrder,
-            {new:true})
-
-            return res.status(200).send({status: true,
-                message: "order status updates successfully", data:updateOrder})
     }
     catch(error){
         return res.status(500).json({ status: false, message: error.message });
