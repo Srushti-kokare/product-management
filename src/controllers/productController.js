@@ -74,26 +74,26 @@ const filterProducts = async (req, res) => {
         const queryData = req.query
         let filter = { isDeleted:false }
 
-        const { size, productName, priceGreaterThan, priceLessThan, sortPrice } = queryData;
+        const { size, name, priceGreaterThan, priceLessThan, sortPrice } = queryData;
 
         if(validator.isValidValue(size)){
             filter['availableSizes'] = size
         }
 
-        if(validator.isValidValue(productName)){  
+        if(validator.isValidValue(name)){  
             filter['title'] = {}
-            filter['title']['$regex'] = productName             //samsung galaxy user: GALAXY
-            filter['title']['$options'] = 'i'                   //case insensitive
+            filter['title']['$regex'] = name             //samsung galaxy user: GALAXY
+            filter['title']['$options'] = '$i'                   //case insensitive
         }
 
         if(validator.isValidValue(priceGreaterThan)){
             if (!(!isNaN(Number(priceGreaterThan)))) {
                 return res.status(400).send({status:false, message: 'price should be a valid number' })           //price should be valid number
             }
-            if (priceGreaterThan < 0) {
+            if (priceGreaterThan <= 0) {
                 return res.status(400).send({status:false, message: 'price can not be less than zero' })         //price should be valid number
             }
-            if (!filter.hasOwnProperty('price'))                                         // checking if "price" exists
+            if (!Object.prototype.hasOwnProperty.call(filter,'price'))                                         // checking if "price" exists
                 filter['price'] = {}                                                     //creating empty object
                 filter['price']['$gte'] = Number(priceGreaterThan)                      //using mongoose operator 
         }
@@ -105,7 +105,7 @@ const filterProducts = async (req, res) => {
             if (priceLessThan <= 0) {
                 return res.status(400).send({status:false, message: 'price can not be zero or less than zero' })    //price should be valid number
             }
-            if (!filter.hasOwnProperty('price'))                                        // checking if "price" exists
+            if (!Object.prototype.hasOwnProperty.call(filter,'price'))                                        // checking if "price" exists
                 filter['price'] = {}                                                    //creating empty object
                 filter['price']['$lte'] = Number(priceLessThan)                        //using mongoose operator 
         }
@@ -148,14 +148,10 @@ const getProductById = async (req, res) => {
             return res.status(400).send({ status: false, msg: "productId is invalid" });
         }
 
-        const findProduct = await productModel.findById(productId)
+        const findProduct = await productModel.findById({_id:productId,isDeleted:false})
 
         if (!findProduct) {
             return res.status(404).send({ status: false, message: 'product does not exists' })
-        }
-
-        if(findProduct.isDeleted == true){
-            return res.status(400).send({ status:false, msg: "product is deleted" });
         }
 
         return res.status(200).send({ status: true, message: 'Product found successfully', data: findProduct })
@@ -190,91 +186,105 @@ const updateProduct = async function (req,res){
         }
 
         let { title, description, price, currencyId,
-            productImage, style, availableSizes, installments } = req.body
+            productImage, style, isFreeShipping, availableSizes, installments } = req.body
 
         const dataToUpdate = {}
 
-        if(req.body.hasOwnProperty('title')){
-            if(!validator.isValidValue(title)){
-                return res.status(400).send({status:false, message:"A valid title should present"})
-            }
+
+            if(validator.isValidValue(title)){
             const isDuplicateTitle = await productModel.findOne({title});
             if (isDuplicateTitle) {
                 return res.status(400).send({status: false,msg: "title already exists.",})
             }
-
-            dataToUpdate['title'] = title
+                if(!Object.prototype.hasOwnProperty.call(dataToUpdate, '$set'))  //returns a boolean indicating whether the object has the 
+                                                                                    //specified property as its own property 
+                    dataToUpdate['$set']  ={} 
+            dataToUpdate['$set']['title'] = title
         }
         
-        if(req.body.hasOwnProperty('description')){
-            if(!validator.isValidValue(description)){
-                return res.status(400).send({status:false, message:"description should present"})
-            }2
-            dataToUpdate['description'] = description}
 
-        if(req.body.hasOwnProperty('price')){
-            if(!validator.isValidValue(price)){
-                return res.status(400).send({status:false, message:"A valid product price should present"})
+            if(validator.isValidValue(description)){
+                if(!Object.prototype.hasOwnProperty.call(dataToUpdate, '$set'))
+                    dataToUpdate['$set']  ={} 
+            dataToUpdate['$set']['description'] = description
             }
-            if ((isNaN(Number(price)))) {
+
+
+            if(validator.isValidValue(price)){
+            
+            if (!(!isNaN(Number(price)))) {
                 return res.status(400).send({ status: false, message: 'Price should be a valid number' })
             }
 
             if (price <= 0) {
                 return res.status(400).send({ status: false, message: 'Price can not be zero or less than zero.' })
             }
-
+            if(!Object.prototype.hasOwnProperty.call(dataToUpdate, '$set'))
+            dataToUpdate['$set']  ={} 
+            dataToUpdate['$set']['price'] = price
             dataToUpdate['price'] = price
         }
 
-        if(req.body.hasOwnProperty('currencyId')){
-            if(!validator.isValidValue(currencyId)){
-                return res.status(400).send({status:false, message:"A valid currrency Id should present"})
-            }
+     
+            if(validator.isValidValue(currencyId)){
+             
             if (!(currencyId == "INR")) {
                 return res.status(400).send({ status: false, message: 'currencyId should be a INR' })
             }
-
+            if(!Object.prototype.hasOwnProperty.call(dataToUpdate, '$set'))
+            dataToUpdate['$set']  ={} 
+            dataToUpdate['$set']['currencyId'] = currencyId
             dataToUpdate['currencyId'] = currencyId
         }
 
-        productImage = req.files;
-        if(productImage){
-            if ((productImage && productImage.length > 0)) {
-            let imageLink = await aws.uploadFile(productImage[0]);
-            dataToUpdate['productImage'] = imageLink
-        }}
-
-        if(req.body.hasOwnProperty('style')){
-            if(!validator.isValidValue(style)){
-                return res.status(400).send({status:false, message:"Style should present"})
+        
+        if(validator.isValidValue(isFreeShipping)){
+            if(!((isFreeShipping==="true" )|| (isFreeShipping === "false"))){
+                return res.status(400).send({status:false,message:"provide boolean values"})
             }
-            dataToUpdate['style'] = style
+            if(!Object.prototype.hasOwnProperty.call(dataToUpdate, '$set'))
+                dataToUpdate['$set']  ={} 
+        dataToUpdate['$set']['isFreeShipping'] = isFreeShipping
         }
 
-        let sizeEnum = availableSizes.split(",").map(x => x.trim())
-        if(req.body.hasOwnProperty('availableSizes')){
-            if(!validator.isValidValue(availableSizes)){
-                return res.status(400).send({status:false, message:"A valid Size should present"})
+             
+                productImage = req.files;
+            if ((productImage && productImage.length > 0)) {
+            let imageLink = await aws.uploadFile(productImage[0]);
+            if(!Object.prototype.hasOwnProperty.call(dataToUpdate, '$set'))
+            dataToUpdate['$set']  ={} 
+            dataToUpdate['$set']['productImage'] = imageLink
+        }
+
+            if(validator.isValidValue(style)){
+                if(!Object.prototype.hasOwnProperty.call(dataToUpdate, '$set'))
+                dataToUpdate['$set']  ={} 
+                dataToUpdate['$set']['style'] = style
             }
+           
+
+            if(validator.isValidValue(availableSizes)){
+                let sizeEnum = availableSizes.split(",").map(x => x.trim())
             for (let i = 0; i < sizeEnum.length; i++) {
                 if (!(["S", "XS", "M", "X", "L", "XXL", "XL"].includes(sizeEnum[i]))) {
                     return res.status(400).send({status: false, message: 'Available Sizes must be ${["S", "XS", "M", "X", "L", "XXL", "XL"]}' })
                 }
             }
-            
-            dataToUpdate['availableSizes'] = availableSizes
+            if(!Object.prototype.hasOwnProperty.call(dataToUpdate, '$set'))
+            dataToUpdate['$set']  ={} 
+            if(Array.isArray(array))
+            dataToUpdate['$set']['availableSizes'] = {$each:array}
         }
 
-        if(req.body.hasOwnProperty('installments')){
-            if(!validator.isValidValue(installments)){
-                return res.status(400).send({status:false, message:"installments should present"})
+       
+            if(validator.isValidValue(installments)){
+              if(!(!isNaN(Number(installments)))){
+                return res.status(400).send({ status: false, message: "installments should be number " })
             }
-            if (installments <= 0 || installments % 1 != 0) {
-                return res.status(400).send({ status: false, message: "installments can not be a decimal number " })
-            }
-            
-            dataToUpdate['installments'] = installments
+           
+            if(!Object.prototype.hasOwnProperty.call(dataToUpdate, '$set'))
+            dataToUpdate['$set']  ={} 
+            dataToUpdate['$set']['installments'] = installments
         }
 
         const updatedProduct = await productModel.findOneAndUpdate(
@@ -282,12 +292,12 @@ const updateProduct = async function (req,res){
 
         res.status(200).send({
             status: true,
-            msg: "product details updated successfully",
+            message: "product details updated successfully",
             data: updatedProduct,
         });
     }
     catch (error) {
-        return res.status(500).json({ status: false, msg: error.message });
+        return res.status(500).send({ status: false, message :error.message });
     }
 }
 
@@ -301,15 +311,14 @@ const deleteProduct = async (req, res) => {
             return res.status(400).send({ status: false, msg: "productId is invalid" });
         }
 
-        const findProduct = await productModel.findById(productId);
+        const findProduct = await productModel.findById({_id:productId,isDeleted:false});
 
         if (!findProduct) {
-            return res.status(404).send({ status: false, message: 'product does not exists' })
+            return res.status(404).send({ status: false, message: 'product not found' })
         }
         if (findProduct.isDeleted == true){
             return res.status(400).send({status:false, message:"product already deleted."})
         }
-
         const deletedDetails = await productModel.findOneAndUpdate(
             { _id: productId },
             { $set: { isDeleted: true, deletedAt: new Date() } }, {new:true})
